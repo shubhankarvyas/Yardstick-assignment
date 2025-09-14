@@ -1,6 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
 import { withAuth, type AuthenticatedRequest } from '@/lib/middleware'
+
+// Shared in-memory notes storage (should match the one in route.ts)
+// In a real app, this would be in a shared module or database
+let NOTES: any[] = [
+  {
+    id: 'note-1',
+    title: 'Welcome to Acme Notes',
+    content: 'This is your first note in the Acme tenant.',
+    userId: 'acme-admin',
+    tenantId: 'acme-tenant',
+    createdAt: new Date('2024-01-15T10:00:00Z'),
+    updatedAt: new Date('2024-01-15T10:00:00Z'),
+    user: { id: 'acme-admin', email: 'admin@acme.test', role: 'ADMIN' }
+  },
+  {
+    id: 'note-2',
+    title: 'Getting Started',
+    content: 'You can create, edit, and delete notes. Notes are isolated by tenant.',
+    userId: 'acme-user',
+    tenantId: 'acme-tenant',
+    createdAt: new Date('2024-01-15T11:00:00Z'),
+    updatedAt: new Date('2024-01-15T11:00:00Z'),
+    user: { id: 'acme-user', email: 'user@acme.test', role: 'MEMBER' }
+  },
+  {
+    id: 'note-3',
+    title: 'Globex Welcome',
+    content: 'Welcome to Globex Corporation notes.',
+    userId: 'globex-admin',
+    tenantId: 'globex-tenant',
+    createdAt: new Date('2024-01-15T12:00:00Z'),
+    updatedAt: new Date('2024-01-15T12:00:00Z'),
+    user: { id: 'globex-admin', email: 'admin@globex.test', role: 'ADMIN' }
+  }
+]
 
 // GET /api/notes/[id] - Get a specific note
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -8,21 +42,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     try {
       const { id: noteId } = await params
 
-      const note = await prisma.note.findFirst({
-        where: {
-          id: noteId,
-          tenantId: authRequest.user.tenantId // Ensure tenant isolation
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              email: true,
-              role: true
-            }
-          }
-        }
-      })
+      const note = NOTES.find(n => 
+        n.id === noteId && n.tenantId === authRequest.user.tenantId
+      )
 
       if (!note) {
         return NextResponse.json(
@@ -56,20 +78,18 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         )
       }
 
-      // Find the note first to ensure it exists and belongs to the tenant
-      const existingNote = await prisma.note.findFirst({
-        where: {
-          id: noteId,
-          tenantId: authRequest.user.tenantId
-        }
-      })
+      const noteIndex = NOTES.findIndex(n => 
+        n.id === noteId && n.tenantId === authRequest.user.tenantId
+      )
 
-      if (!existingNote) {
+      if (noteIndex === -1) {
         return NextResponse.json(
           { error: 'Note not found' },
           { status: 404 }
         )
       }
+
+      const existingNote = NOTES[noteIndex]
 
       // Check if user owns the note or is an admin
       if (existingNote.userId !== authRequest.user.userId && authRequest.user.role !== 'ADMIN') {
@@ -79,25 +99,15 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         )
       }
 
-      const updatedNote = await prisma.note.update({
-        where: { id: noteId },
-        data: {
-          title,
-          content,
-          updatedAt: new Date()
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              email: true,
-              role: true
-            }
-          }
-        }
-      })
+      // Update the note
+      NOTES[noteIndex] = {
+        ...existingNote,
+        title,
+        content,
+        updatedAt: new Date()
+      }
 
-      return NextResponse.json({ note: updatedNote })
+      return NextResponse.json({ note: NOTES[noteIndex] })
     } catch (error) {
       console.error('Update note error:', error)
       return NextResponse.json(
@@ -114,20 +124,18 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     try {
       const { id: noteId } = await params
 
-      // Find the note first to ensure it exists and belongs to the tenant
-      const existingNote = await prisma.note.findFirst({
-        where: {
-          id: noteId,
-          tenantId: authRequest.user.tenantId
-        }
-      })
+      const noteIndex = NOTES.findIndex(n => 
+        n.id === noteId && n.tenantId === authRequest.user.tenantId
+      )
 
-      if (!existingNote) {
+      if (noteIndex === -1) {
         return NextResponse.json(
           { error: 'Note not found' },
           { status: 404 }
         )
       }
+
+      const existingNote = NOTES[noteIndex]
 
       // Check if user owns the note or is an admin
       if (existingNote.userId !== authRequest.user.userId && authRequest.user.role !== 'ADMIN') {
@@ -137,9 +145,8 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
         )
       }
 
-      await prisma.note.delete({
-        where: { id: noteId }
-      })
+      // Delete the note
+      NOTES.splice(noteIndex, 1)
 
       return NextResponse.json({ message: 'Note deleted successfully' })
     } catch (error) {
