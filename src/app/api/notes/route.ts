@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { authenticate } from '@/lib/middleware'
+import { verifyToken, extractTokenFromHeader } from '@/lib/auth'
 
 // In-memory notes storage for deployment compatibility
 let NOTES: any[] = [
@@ -37,15 +37,17 @@ let NOTES: any[] = [
 
 export async function GET(request: NextRequest) {
   try {
-    const authResult = await authenticate(request)
-    if (!authResult.success) {
+    const authHeader = request.headers.get('authorization')
+    const token = extractTokenFromHeader(authHeader)
+    
+    if (!token) {
       return NextResponse.json(
-        { error: authResult.error },
-        { status: authResult.status }
+        { error: 'Authorization token required' },
+        { status: 401 }
       )
     }
 
-    const payload = authResult.payload
+    const payload = verifyToken(token)
     
     // Filter notes by tenant
     const tenantNotes = NOTES.filter(note => note.tenantId === payload.tenantId)
@@ -62,15 +64,17 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const authResult = await authenticate(request)
-    if (!authResult.success) {
+    const authHeader = request.headers.get('authorization')
+    const token = extractTokenFromHeader(authHeader)
+    
+    if (!token) {
       return NextResponse.json(
-        { error: authResult.error },
-        { status: authResult.status }
+        { error: 'Authorization token required' },
+        { status: 401 }
       )
     }
 
-    const payload = authResult.payload
+    const payload = verifyToken(token)
     const { title, content } = await request.json()
 
     if (!title || !content) {
