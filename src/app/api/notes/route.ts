@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { prisma, ensureDatabase } from '@/lib/prisma'
 import { withAuth } from '@/lib/middleware'
 
 // GET /api/notes - List all notes for the current tenant
 export const GET = withAuth(async (request) => {
   try {
+    await ensureDatabase()
+    
     const notes = await prisma.note.findMany({
       where: {
         tenantId: request.user.tenantId
@@ -36,6 +38,8 @@ export const GET = withAuth(async (request) => {
 // POST /api/notes - Create a new note
 export const POST = withAuth(async (request) => {
   try {
+    await ensureDatabase()
+    
     const { title, content } = await request.json()
 
     if (!title || !content) {

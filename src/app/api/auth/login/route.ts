@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { prisma, ensureDatabase } from '@/lib/prisma'
 import { verifyPassword, generateToken } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
   try {
+    // Ensure database is initialized with seed data
+    await ensureDatabase()
+    
     const { email, password } = await request.json()
 
     if (!email || !password) {
