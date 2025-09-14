@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server'
-import { withAuth } from '@/lib/middleware'
+import { NextRequest, NextResponse } from 'next/server'
+import { authenticate } from '@/lib/middleware'
 
 // In-memory notes storage for deployment compatibility
 let NOTES: any[] = [
@@ -35,11 +35,20 @@ let NOTES: any[] = [
   }
 ]
 
-// GET /api/notes - List all notes for the current tenant
-export const GET = withAuth(async (request) => {
+export async function GET(request: NextRequest) {
   try {
+    const authResult = await authenticate(request)
+    if (!authResult.success) {
+      return NextResponse.json(
+        { error: authResult.error },
+        { status: authResult.status }
+      )
+    }
+
+    const { payload } = authResult
+    
     // Filter notes by tenant
-    const tenantNotes = NOTES.filter(note => note.tenantId === request.user.tenantId)
+    const tenantNotes = NOTES.filter(note => note.tenantId === payload.tenantId)
     
     return NextResponse.json({ notes: tenantNotes })
   } catch (error) {
@@ -49,11 +58,19 @@ export const GET = withAuth(async (request) => {
       { status: 500 }
     )
   }
-})
+}
 
-// POST /api/notes - Create a new note
-export const POST = withAuth(async (request) => {
+export async function POST(request: NextRequest) {
   try {
+    const authResult = await authenticate(request)
+    if (!authResult.success) {
+      return NextResponse.json(
+        { error: authResult.error },
+        { status: authResult.status }
+      )
+    }
+
+    const { payload } = authResult
     const { title, content } = await request.json()
 
     if (!title || !content) {
@@ -64,7 +81,7 @@ export const POST = withAuth(async (request) => {
     }
 
     // Check subscription limits for FREE plan (simulated)
-    const tenantNotes = NOTES.filter(note => note.tenantId === request.user.tenantId)
+    const tenantNotes = NOTES.filter(note => note.tenantId === payload.tenantId)
     
     if (tenantNotes.length >= 3) {
       return NextResponse.json(
@@ -80,14 +97,14 @@ export const POST = withAuth(async (request) => {
       id: `note-${Date.now()}`,
       title,
       content,
-      userId: request.user.userId,
-      tenantId: request.user.tenantId,
+      userId: payload.userId,
+      tenantId: payload.tenantId,
       createdAt: new Date(),
       updatedAt: new Date(),
       user: {
-        id: request.user.userId,
-        email: request.user.email,
-        role: request.user.role
+        id: payload.userId,
+        email: payload.email,
+        role: payload.role
       }
     }
 
@@ -101,4 +118,4 @@ export const POST = withAuth(async (request) => {
       { status: 500 }
     )
   }
-})
+}
