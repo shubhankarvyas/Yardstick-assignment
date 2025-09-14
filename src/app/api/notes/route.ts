@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const { payload } = authResult
+    const payload = authResult.payload
     
     // Filter notes by tenant
     const tenantNotes = NOTES.filter(note => note.tenantId === payload.tenantId)
@@ -70,26 +70,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { payload } = authResult
+    const payload = authResult.payload
     const { title, content } = await request.json()
 
     if (!title || !content) {
       return NextResponse.json(
         { error: 'Title and content are required' },
         { status: 400 }
-      )
-    }
-
-    // Check subscription limits for FREE plan (simulated)
-    const tenantNotes = NOTES.filter(note => note.tenantId === payload.tenantId)
-    
-    if (tenantNotes.length >= 3) {
-      return NextResponse.json(
-        { 
-          error: 'Note limit reached. Upgrade to Pro plan for unlimited notes.',
-          code: 'NOTE_LIMIT_REACHED'
-        },
-        { status: 403 }
       )
     }
 

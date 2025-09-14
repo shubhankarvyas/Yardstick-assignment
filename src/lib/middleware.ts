@@ -5,7 +5,14 @@ export interface AuthenticatedRequest extends NextRequest {
   user: JWTPayload
 }
 
-export async function authenticate(request: NextRequest) {
+export async function authenticate(request: NextRequest): Promise<{
+  success: true;
+  payload: JWTPayload;
+} | {
+  success: false;
+  error: string;
+  status: number;
+}> {
   try {
     const authHeader = request.headers.get('authorization')
     const token = extractTokenFromHeader(authHeader)
