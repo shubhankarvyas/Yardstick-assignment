@@ -1,0 +1,68 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MEMBER
+}
+
+enum SubscriptionPlan {
+  FREE
+  PRO
+}
+
+model Tenant {
+  id               String           @id @default(cuid())
+  slug             String           @unique // e.g., "acme", "globex"
+  name             String           // e.g., "Acme Corporation"
+  subscriptionPlan SubscriptionPlan @default(FREE)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  users User[]
+  notes Note[]
+
+  @@map("tenants")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   
+  password  String   // bcrypt hashed
+  role      Role     @default(MEMBER)
+  tenantId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  notes  Note[]
+
+  @@unique([email, tenantId]) // Email must be unique within a tenant
+  @@map("users")
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  userId    String
+  tenantId  String   // Denormalized for easier querying and isolation
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId]) // For efficient tenant-scoped queries
+  @@index([userId])   // For efficient user-scoped queries
+  @@map("notes")
+}
