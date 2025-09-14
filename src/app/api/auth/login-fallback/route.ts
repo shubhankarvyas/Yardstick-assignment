@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyPassword, generateToken } from '@/lib/auth'
+import bcrypt from 'bcryptjs'
 
-// In-memory test users for deployment compatibility
+// In-memory test users for Vercel deployment
 const TEST_USERS = [
   {
     id: 'acme-admin',
